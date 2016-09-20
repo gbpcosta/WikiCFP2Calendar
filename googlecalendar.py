@@ -1,11 +1,9 @@
 import os
 import datetime
-import httplib2
+from httplib2 import Http
 
 from apiclient import discovery
-import oauth2client
-from oauth2client import client
-from oauth2client import tools
+from oauth2client import file, client, tools
 
 try:
     import argparse
@@ -20,6 +18,7 @@ class GoogleCalendarBot(object):
     # TODO: modify constants
     SCOPES = 'https://www.googleapis.com/auth/calendar'
     APPLICATION_NAME = 'WikiCFP 2 Google Calendar'
+    STORAGE_FILE = 'storage.json'
 
     def __init__(self, calendar='primary', client_secret_file = 'client_secret.json'):
         self.calendar = calendar
@@ -41,7 +40,7 @@ class GoogleCalendarBot(object):
         credential_path = os.path.join(credential_dir,
                                        'wikicfp2calendar.json')
 
-        store = oauth2client.file.Storage(credential_path)
+        store = file.Storage(credential_path)
         credentials = store.get()
         if not credentials or credentials.invalid:
             flow = client.flow_from_clientsecrets(self.client_secret_file, self.SCOPES)
@@ -55,7 +54,7 @@ class GoogleCalendarBot(object):
 
     def listCalendars(self):
         credentials = self.get_credentials()
-        http = credentials.authorize(httplib2.Http())
+        http = credentials.authorize(Http())
         service = discovery.build('calendar', 'v3', http=http)
 
         page_token = None
@@ -70,14 +69,17 @@ class GoogleCalendarBot(object):
     def setCalendar(self, calendar):
         self.calendar = calendar
 
-    def includeEvents(self, events):
+    def checkEvent(self, service, event):
+        events_q = service.events().list(calendarId=self.calendar, maxResults=1, q=event['summary']).execute() # using summary as a primary key
+        return len(events_q.get('items', []))
+
+    def includeEvents(self, events, verbose=1):
         credentials = self.get_credentials()
-        http = credentials.authorize(httplib2.Http())
+        http = credentials.authorize(Http())
         service = discovery.build('calendar', 'v3', http=http)
 
-        # for event in events:
-        event = events[0]
-        print event
-        event = service.events().insert(calendarId=self.calendar, body=event).execute()
-        if verbose > 0:
-            print 'Event created: %s' % (event.get('htmlLink'))
+        for event in events:
+            if not self.checkEvent(service, event):
+                event = service.events().insert(calendarId=self.calendar, sendNotifications=True, body=event).execute()
+                if verbose > 0:
+                    print 'Event created: %s' % (event.get('htmlLink'))
