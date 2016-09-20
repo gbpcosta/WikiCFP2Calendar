@@ -65,14 +65,14 @@ class WikiCFPParser(object):
                             },
                         'end': {
                             'date': deadline.strftime("%Y-%m-%d")
-                            },
-                        'endTimeUnspecified': True,
-                        'anyoneCanAddSelf': True,
-                        'guestsCanInviteOthers': True,
-                        'guestsCanModify': True,
-                        'reminders': {
-                            'useDefault': True
-                            }
+                            }#,
+                        # 'endTimeUnspecified': True,
+                        # 'anyoneCanAddSelf': True,
+                        # 'guestsCanInviteOthers': True,
+                        # 'guestsCanModify': True,
+                        # 'reminders': {
+                        #     'useDefault': True
+                        #     }
                         }
 
                 if datetime.today().date() < deadline.date() and event not in events:
