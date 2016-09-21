@@ -16,15 +16,17 @@ class WikiCFPParser(object):
     def prepareCategory(self, category):
         return category.lower().replace(' ', '%20')
 
+    # TODO: debug Data science bug
     def parseFeed(self, verbose = 0):
+        events = []
+        debug = 0
         for category in self.categories:
             feed = feedparser.parse(self.feed_url % self.prepareCategory(category))
 
             # TODO: Check if it was updated (compare previous update date to d.updated ou d.updated_parsed)
-
-            events = []
             n_entries = len(feed.entries)
             for ii, entry in enumerate(feed.entries):
+                date_tbd = 0
                 if verbose > 0:
                     print "Processing entry %d / %d from the %s category" % (ii+1, n_entries, category.capitalize())
 
@@ -43,9 +45,17 @@ class WikiCFPParser(object):
                     dates_text = dates_text + "\t" + tp.text.strip() + ": " + tds[jj].text.strip() + "\n"
 
                     if tp.text.strip().lower() == "submission deadline":
-                        deadline = datetime.strptime(tds[jj].text.strip(), '%b %d, %Y') # Deadline will be used as event date
+                        if tds[jj].text.strip() == 'TBD':
+                            date_tbd = 1
+                            break
+                        else:
+                            deadline = datetime.strptime(tds[jj].text.strip(), '%b %d, %Y') # Deadline will be used as event date
                     if tp.text.strip().lower() == "where":
                         location = tds[jj].text.strip() # Location will be used in event
+
+                if date_tbd:
+                    time.sleep(5)
+                    continue
 
                 categories_table = soup.body.find_all('table', attrs={'class': 'gglu'})[1]
                 keywords = categories_table.find_all('a')[1:]
@@ -77,9 +87,11 @@ class WikiCFPParser(object):
 
                 if datetime.today().date() < deadline.date() and event not in events:
                     # print deadline.strftime("%b %d, %Y")
+                    debug = debug + 1
                     events.append(event)
 
                 time.sleep(5) # WikiCFP requested that, at most, one query was issued every five seconds
             events = sorted(events, key = lambda tup: tup['start']['date'])
-
+        print debug
+        print len(events)
         return events
