@@ -5,24 +5,19 @@ from httplib2 import Http
 from apiclient import discovery
 from oauth2client import file, client, tools
 
-try:
-    import argparse
-    flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
-except ImportError:
-    flags = None
-
-class GoogleCalendarBot(object):
+class GoogleCalendar(object):
     calendar = None
     client_secret_file = None
+    flags = None
 
     # TODO: modify constants
     SCOPES = 'https://www.googleapis.com/auth/calendar'
     APPLICATION_NAME = 'WikiCFP 2 Google Calendar'
-    STORAGE_FILE = 'storage.json'
 
-    def __init__(self, calendar='primary', client_secret_file = 'client_secret.json'):
+    def __init__(self, calendar='primary', client_secret_file = 'client_secret.json', flags = None):
         self.calendar = calendar
         self.client_secret_file = client_secret_file
+        self.flags = flags
 
     def get_credentials(self):
         """Gets valid user credentials from storage.
@@ -45,8 +40,8 @@ class GoogleCalendarBot(object):
         if not credentials or credentials.invalid:
             flow = client.flow_from_clientsecrets(self.client_secret_file, self.SCOPES)
             flow.user_agent = self.APPLICATION_NAME
-            if flags:
-                credentials = tools.run_flow(flow, store, flags)
+            if self.flags:
+                credentials = tools.run_flow(flow, store, self.flags)
             else: # Needed only for compatibility with Python 2.6
                 credentials = tools.run(flow, store)
             print('Storing credentials to ' + credential_path)
@@ -69,11 +64,12 @@ class GoogleCalendarBot(object):
     def setCalendar(self, calendar):
         self.calendar = calendar
 
+    # TODO: verify if event was update, and update the calendar event if necessary
     def checkEvent(self, service, event):
         events_q = service.events().list(calendarId=self.calendar, maxResults=1, q=event['summary']).execute() # using summary as a primary key
         return len(events_q.get('items', []))
 
-    def includeEvents(self, events, verbose=1):
+    def includeEvents(self, events, verbose=0):
         credentials = self.get_credentials()
         http = credentials.authorize(Http())
         service = discovery.build('calendar', 'v3', http=http)
@@ -82,4 +78,4 @@ class GoogleCalendarBot(object):
             if not self.checkEvent(service, event):
                 event = service.events().insert(calendarId=self.calendar, sendNotifications=True, body=event).execute()
                 if verbose > 0:
-                    print 'Event created: %s' % (event.get('htmlLink'))
+                    print 'Event created: %s (%s)' % (event.get('summary'), event.get('htmlLink'))
